@@ -1,0 +1,349 @@
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define V 9
+#define NAME_LENGTH 50
+
+// Structure for an adjacency-list node
+typedef struct Node {
+    int vertex;
+    struct Node *next;
+} Node;
+
+// Campus location names
+const char *locations[V] = {
+    "Main Gate",
+    "Library",
+    "Block 1",
+    "Block 2",
+    "Cafeteria",
+    "Auditorium",
+    "Parking",
+    "Lab",
+    "Sports Complex"
+};
+
+// Array of adjacency-list heads
+Node *adj[V];
+
+// Create a new adjacency-list node
+Node *createNode(int vertex) {
+    Node *newNode = (Node *)malloc(sizeof(Node));
+
+    if (newNode == NULL) {
+        printf("Memory allocation failed.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    newNode->vertex = vertex;
+    newNode->next = NULL;
+    return newNode;
+}
+
+// Add an edge to the graph
+void addEdge(int src, int dest) {
+    Node *newNode = createNode(dest);
+    newNode->next = adj[src];
+    adj[src] = newNode;
+
+    // Add reverse edge because the graph is undirected
+    newNode = createNode(src);
+    newNode->next = adj[dest];
+    adj[dest] = newNode;
+}
+
+// Initialize the campus graph
+void initializeGraph(void) {
+    int i;
+
+    for (i = 0; i < V; i++) {
+        adj[i] = NULL;
+    }
+
+    addEdge(0, 1); // Main Gate - Library
+    addEdge(0, 6); // Main Gate - Parking
+    addEdge(1, 2); // Library - Block 1
+    addEdge(1, 4); // Library - Cafeteria
+    addEdge(2, 3); // Block 1 - Block 2
+    addEdge(2, 7); // Block 1 - Lab
+    addEdge(3, 5); // Block 2 - Auditorium
+    addEdge(3, 6); // Block 2 - Parking
+    addEdge(4, 5); // Cafeteria - Auditorium
+
+    // Sports Complex (vertex 8) is intentionally
+    // disconnected for testing unreachable routes.
+}
+
+// Display numbered campus locations
+void displayLocations(void) {
+    int i;
+
+    printf("\n------ CAMPUS LOCATIONS ------\n");
+
+    for (i = 0; i < V; i++) {
+        printf("%d. %s\n", i + 1, locations[i]);
+    }
+}
+
+// Read and validate a location selection
+int getLocation(const char *message) {
+    int choice;
+
+    while (1) {
+        printf("%s (1-%d): ", message, V);
+
+        if (scanf("%d", &choice) != 1) {
+            int ch;
+
+            while ((ch = getchar()) != '\n' && ch != EOF) {
+                // Clear invalid input
+            }
+
+            printf("Invalid input. Enter a number.\n");
+            continue;
+        }
+
+        if (choice >= 1 && choice <= V) {
+            return choice - 1;
+        }
+
+        printf("Invalid choice. Try again.\n");
+    }
+}
+
+// Display the adjacency-list representation
+void displayGraph(void) {
+    int i;
+    Node *temp;
+
+    printf("\n------ CAMPUS GRAPH (ADJACENCY LIST) ------\n");
+
+    for (i = 0; i < V; i++) {
+        printf("%s -> ", locations[i]);
+
+        temp = adj[i];
+
+        if (temp == NULL) {
+            printf("No connected locations");
+        }
+
+        while (temp != NULL) {
+            printf("%s", locations[temp->vertex]);
+
+            if (temp->next != NULL) {
+                printf(" -> ");
+            }
+
+            temp = temp->next;
+        }
+
+        printf("\n");
+    }
+}
+
+// Breadth-First Search: find the shortest route
+void bfsShortestRoute(int src, int dest) {
+    int visited[V] = {0};
+    int parent[V];
+    int queue[V];
+    int front = 0, rear = 0;
+    int current, i;
+    int path[V], pathLength = 0;
+    Node *temp;
+
+    for (i = 0; i < V; i++) {
+        parent[i] = -1;
+    }
+
+    visited[src] = 1;
+    queue[rear++] = src;
+
+    while (front < rear) {
+        current = queue[front++];
+
+        if (current == dest) {
+            break;
+        }
+
+        temp = adj[current];
+
+        while (temp != NULL) {
+            int nextVertex = temp->vertex;
+
+            if (!visited[nextVertex]) {
+                visited[nextVertex] = 1;
+                parent[nextVertex] = current;
+                queue[rear++] = nextVertex;
+            }
+
+            temp = temp->next;
+        }
+    }
+
+    if (!visited[dest]) {
+        printf("\nNo route exists from %s to %s.\n",
+               locations[src], locations[dest]);
+        return;
+    }
+
+    // Reconstruct the route using parent information
+    current = dest;
+
+    while (current != -1) {
+        path[pathLength++] = current;
+        current = parent[current];
+    }
+
+    printf("\n------ BFS SHORTEST ROUTE ------\n");
+    printf("Source      : %s\n", locations[src]);
+    printf("Destination : %s\n", locations[dest]);
+    printf("Route       : ");
+
+    for (i = pathLength - 1; i >= 0; i--) {
+        printf("%s", locations[path[i]]);
+
+        if (i > 0) {
+            printf(" -> ");
+        }
+    }
+
+    printf("\nMinimum number of edges: %d\n",
+           pathLength - 1);
+}
+
+// DFS helper function
+void dfsUtil(int vertex, int visited[]) {
+    Node *temp;
+
+    visited[vertex] = 1;
+    printf("%s\n", locations[vertex]);
+
+    temp = adj[vertex];
+
+    while (temp != NULL) {
+        if (!visited[temp->vertex]) {
+            dfsUtil(temp->vertex, visited);
+        }
+
+        temp = temp->next;
+    }
+}
+
+// Display all locations reachable from a source
+void dfsReachability(int src) {
+    int visited[V] = {0};
+    int i;
+    int reachableCount = 0;
+
+    printf("\n------ DFS REACHABILITY ------\n");
+    printf("Starting location: %s\n\n", locations[src]);
+
+    dfsUtil(src, visited);
+
+    printf("\n------ DISCONNECTED / UNREACHABLE LOCATIONS ------\n");
+
+    for (i = 0; i < V; i++) {
+        if (visited[i]) {
+            reachableCount++;
+        }
+    }
+
+    if (reachableCount == V) {
+        printf("All campus locations are reachable.\n");
+    } else {
+        for (i = 0; i < V; i++) {
+            if (!visited[i]) {
+                printf("%s\n", locations[i]);
+            }
+        }
+    }
+
+    printf("\nReachable locations including the start: %d/%d\n",
+           reachableCount, V);
+}
+
+// Free allocated adjacency-list memory
+void freeGraph(void) {
+    int i;
+    Node *temp;
+    Node *nextNode;
+
+    for (i = 0; i < V; i++) {
+        temp = adj[i];
+
+        while (temp != NULL) {
+            nextNode = temp->next;
+            free(temp);
+            temp = nextNode;
+        }
+
+        adj[i] = NULL;
+    }
+}
+
+// Main menu
+int main(void) {
+    int choice;
+    int src, dest;
+
+    initializeGraph();
+
+    do {
+        printf("\n====================================\n");
+        printf("       CAMPUS ROUTE FINDER\n");
+        printf("====================================\n");
+        printf("1. Display campus locations\n");
+        printf("2. Display graph (adjacency list)\n");
+        printf("3. Find shortest route using BFS\n");
+        printf("4. Display reachable locations using DFS\n");
+        printf("5. Exit\n");
+        printf("Enter your choice: ");
+
+        if (scanf("%d", &choice) != 1) {
+            int ch;
+
+            while ((ch = getchar()) != '\n' && ch != EOF) {
+                // Clear invalid input
+            }
+
+            printf("Invalid input. Enter a number.\n");
+            continue;
+        }
+
+        switch (choice) {
+            case 1:
+                displayLocations();
+                break;
+
+            case 2:
+                displayGraph();
+                break;
+
+            case 3:
+                displayLocations();
+                src = getLocation("Enter source location number");
+                dest = getLocation("Enter destination location number");
+                bfsShortestRoute(src, dest);
+                break;
+
+            case 4:
+                displayLocations();
+                src = getLocation("Enter starting location number");
+                dfsReachability(src);
+                break;
+
+            case 5:
+                printf("Thank you for using Campus Route Finder!\n");
+                break;
+
+            default:
+                printf("Invalid menu choice. Try again.\n");
+        }
+
+    } while (choice != 5);
+
+    freeGraph();
+    return 0;
+}
